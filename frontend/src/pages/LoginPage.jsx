@@ -3,7 +3,7 @@ import React, { useState } from "react";
 const LoginPage = ({ login, isLoggingIn }) => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [test7,setTest]=useState("");
+  const [test8,setTest]=useState("");
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({
