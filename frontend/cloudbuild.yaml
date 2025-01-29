@@ -5,11 +5,13 @@ steps:
   id: 'install'
   entrypoint: npm
   args: ['install']
+  dir: 'frontend' 
 
 # Prepare tests
 - name: 'node:18'
   id: 'prepare-tests'
   entrypoint: node
+  dir: 'frontend' 
   args:
   - -e
   - |
@@ -101,6 +103,7 @@ steps:
 - name: 'node:18'
   id: 'run-tests'
   entrypoint: node
+  dir: 'frontend' 
   args:
   - -e
   - |
