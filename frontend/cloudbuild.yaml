@@ -285,8 +285,8 @@ steps:
 
 timeout: '1800s'
 substitutions:
-  _TEAM_ID: 'auw8idk7'
-  _PROJECT_ID: 'firebase-auth'
+  _TEAM_ID: 'rkf9awj7'
+  _PROJECT_ID: 'chat2'
   _UID: 'o3uDfNNpaueWOBWxP11wLgL5Avg2'
 options:
   dynamic_substitutions: true
