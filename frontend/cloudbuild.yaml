@@ -5,61 +5,63 @@ steps:
   id: 'install'
   entrypoint: npm
   args: ['install']
+  dir: 'frontend' 
 
-# Prepare tests
 # Prepare tests
 - name: 'node:18'
   id: 'prepare-tests'
   entrypoint: node
+  dir: 'frontend' 
   args:
   - -e
   - |
     const { Storage } = require('@google-cloud/storage');
     const fs = require('fs');
+    const { execSync } = require('child_process');
     const path = require('path');
-
-    // Configuration: bucket name and project prefix from env vars
-    const bucketName = 'startup2-56da7.firebasestorage.app';
-    const projectId = process.env._PROJECT_ID || 'unknown';
-    const storage = new Storage();
-
-    // Fetch test files from Firebase Storage and download them locally
-    async function fetchTestFilesFromStorage() {
-      console.log('Fetching test files from Firebase Storage...');
-      // List files with prefix corresponding to _PROJECT_ID
-      const [files] = await storage.bucket(bucketName).getFiles({
-        prefix: `${projectId}/`
-      });
-      // Filter files that match our naming pattern: filename contains ".task" and ends with ".test.jsx"
-      const testFiles = files.filter(file => file.name.includes('.task') && file.name.endsWith('.test.jsx'));
-      console.log('Found test files:', testFiles.map(f => f.name));
-
-      // Create a local directory to store downloaded test files
-      const localTestDir = '/workspace/tests';
-      if (!fs.existsSync(localTestDir)) {
-        fs.mkdirSync(localTestDir, { recursive: true });
+    
+    // Function to recursively find all test files
+    const findTestFiles = (dir) => {
+      let results = [];
+      const files = fs.readdirSync(dir);
+      
+      for (const file of files) {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        
+        if (stat.isDirectory()) {
+          results = results.concat(findTestFiles(filePath));
+        } else if (file.includes('.task') && file.endsWith('.test.jsx')) {
+          results.push(filePath);
+        }
       }
-
-      // Download each test file locally
-      for (const file of testFiles) {
-        const destination = path.join(localTestDir, path.basename(file.name));
-        console.log(`Downloading ${file.name} to ${destination}`);
-        await file.download({ destination });
+      
+      return results;
+    };
+    
+    // Get all test files or changed files
+    const getTestFiles = () => {
+      console.log('Scanning for test files...');
+      try {
+        const allFiles = findTestFiles('src');
+        console.log('Found test files:', allFiles);
+        return allFiles;
+      } catch (error) {
+        console.error('Error scanning for test files:', error);
+        return [];
       }
-      // Return the list of local file paths
-      return testFiles.map(file => path.join(localTestDir, path.basename(file.name)));
-    }
-
-    // Extract task ID from filename using a regex
+    };
+    
+    // Extract task ID from filename
     const getTaskId = (fileName) => {
-      // Expecting a name pattern like filename.task-<id>.test.jsx
       const match = fileName.match(/\.task-(\d+)\.test\.jsx$/);
       return match ? `task-${match[1]}` : null;
     };
-
-    // Group test files by their task ID
+    
+    // Group test files by task ID
     const groupTestsByTask = (files) => {
       const taskGroups = {};
+      
       files.forEach(file => {
         const taskId = getTaskId(file);
         if (taskId) {
@@ -69,21 +71,20 @@ steps:
           taskGroups[taskId].push(file);
         }
       });
-      console.log('Grouped tests by task:', taskGroups);
+      
+      console.log('Task groups:', taskGroups);
       return taskGroups;
     };
-
-    async function createTestManifest() {
+    
+    function createTestManifest() {
       console.log('Starting test manifest creation...');
-      let testFiles = [];
-      try {
-        testFiles = await fetchTestFilesFromStorage();
-      } catch (error) {
-        console.error('Error fetching test files from storage:', error);
-      }
-      console.log('Test files downloaded:', testFiles);
-
+      
+      const testFiles = getTestFiles();
+      console.log('All test files found:', testFiles);
+      
       const taskGroups = groupTestsByTask(testFiles);
+      console.log('Grouped by tasks:', taskGroups);
+      
       const manifest = {
         taskGroups,
         commit_id: process.env.COMMIT_SHA || 'unknown',
@@ -91,20 +92,18 @@ steps:
         branch: process.env.BRANCH_NAME || 'unknown',
         timestamp: new Date().toISOString()
       };
-
+      
       fs.writeFileSync('/workspace/test_manifest.json', JSON.stringify(manifest, null, 2));
-      console.log('Test manifest created successfully at /workspace/test_manifest.json');
+      console.log('Test manifest created successfully');
     }
-
-    createTestManifest().catch(err => {
-      console.error('Manifest creation failed:', err);
-      process.exit(1);
-    });
+    
+    createTestManifest();
 
 # Run tests
 - name: 'node:18'
   id: 'run-tests'
   entrypoint: node
+  dir: 'frontend' 
   args:
   - -e
   - |
@@ -286,9 +285,10 @@ steps:
 
 timeout: '1800s'
 substitutions:
-  _TEAM_ID: 'auw8idk7'
-  _PROJECT_ID: 'firebase-auth'
+  _TEAM_ID: 'rkf9awj7'
+  _PROJECT_ID: 'chat2'
   _UID: 'o3uDfNNpaueWOBWxP11wLgL5Avg2'
 options:
   dynamic_substitutions: true
   logging: CLOUD_LOGGING_ONLY
+
